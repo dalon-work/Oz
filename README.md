@@ -1,2 +1,2 @@
-# oz
+# Oz
 Experiments in C++
