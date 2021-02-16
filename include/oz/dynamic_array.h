@@ -6,11 +6,12 @@
 #include <cstddef>
 #include <iterator>
 #include <limits>
+#include <memory>
 
 BEGIN_NAMESPACE_OZ
 
-template<typename T>
-class dynamic_array
+template<typename T, typename Allocator = std::allocator<T>>
+class dynamic_array : protected Allocator
 {
    using value_type = T;
    using reference = T&;
@@ -25,12 +26,184 @@ class dynamic_array
 
    public:
 
-   dynamic_array() noexcept : _elems{nullptr}, _N{0} {}
+   //  -- Done. vector() noexcept(noexcept(Allocator())); (1)
+   //  - Default Constructor. Constructs an empty container with a default-constructed allocator.
+   // -- Done. explicit vector( const Allocator& alloc ) noexcept; (2)
+   //  - Constructs an empty container with the given allocator alloc.
+   //
+   // vector( size_type count, const T& value, const Allocator& alloc = Allocator()); (3)
+   //  - Constructs the container with count copies of elements with value value
+   //
+   // explicit vector( size_type count, const Allocator& alloc = Allocator()); (4)
+   //   - Constructs the container with count default-inserted instances of T. No copies are made.
+   //   - This overload zeros out elements of non-class types such as int.
+   // template<class InputIt> vector( InputIt first, InputIt last, const Allocator& alloc = Allocator() ); (5)
+   //  - Constructs the container with the contents of the range [first, last).
+   // vector( const vector& other ); (6)
+   // vector( const vector& other, const Allocator& alloc ); (7)
+   // vector( vector&& other ) noexcept; (8)
+   // vector( vector&& other, const Allocator& alloc); (9)
+   // vector( std::initializer_list<T> init, const Allocator& alloc = Allocator() ); (10)
+   //
+   // ~vector();
+   //
+   // vector& operator=( const vector& other );
+   // vector& operator=( vector&& other ) noexcept(*);
+   //   - Replaces the contents with those of other using move semantics
+   //     If std::allocator_traits<allocator_type>::propagate_on_container_move_assignment::value
+   //     is true, the target allocator is replaced by a copy of the source allocator. 
+   //     If it is false and the source and the target allocators do not compare equal,
+   //     the target cannot take ownership of the source memory and must move-assign
+   //     each element individually, alloacting additional memroy using its own allocator
+   //     as needed. In any case, all elements originally present in *this are either
+   //     destroyed or replaced by elementwise move-assignment.
+   //   - noexcept(std::allocator_traits<Allocator>::propagate_on_container_move_assignment::value || std::allocator_traits<Allocator>::is_always_equal::value)
+   // vector& operator=( std::initializer_list<T> ilist );
+   //
+   // void assign( size_type count, const T& value );
+   // template< class InputIt > void assign( InputIt first, InputIt last );
+   // void assign( std::initializer_list<T> ilist );
+   //
+   // allocator_type get_allocator() const noexcept;
+   //
+   // reference at( size_type pos );
+   //   - If pos is not within the range of the container, an exception of type
+   //     std::out_of_range is thrown
+   //
+   // reference operator[] ( size_type pos );
+   // const_reference operator [] ( size_type pos) const;
+   //   - No bounds checking is performed
+   //
+   // reference front();
+   // const_reference front() const;
+   // reference back();
+   // const_reference back() const;
+   // T* data() noexcept;
+   // const T* data() const noexcept;
+   //
+   // iterator begin() noexcept;
+   // const_iterator begin() const noexcept;
+   // const_iterator cbegin() const noexcept;
+   // iterator end() noexcept;
+   // const_iterator end() const noexcept;
+   // const_iterator cend() const noexcept;
+   // 
+   // reverse_iterator rbegin() noexcept;
+   // const_reverse_iterator rbegin() const noexcept;
+   // const_reverse_iterator crbegin() const noexcept;
+   //   - Last element of the non-reversed vector
+   //
+   // reverse_iterator rend() noexcept;
+   // const_reverse_iterator rend() const noexcept;
+   // const_reverse_iterator crend() const noexcept;
+   //   - element preceding the first element of the non-reversed vector
+   //
+   // bool empty() const noexcept;
+   // size_type size() const noexcept;
+   // size_type max_size() const noexcept;
+   //   - typically std::numeric_limits<difference_type>::max()
+   //
+   // void reserve( size_type new_cap );
+   //   - does not change the size of the vector
+   //   - std::length_error if new_cap > max_size()
+   //   - If an exception is thrown, this function has no effect (strong exception guarantee)
+   //     If T's move constructor is not noexcept and T is not CopyInsertable into *this, 
+   //     vector will use the throwing move constructor. If it throws, the guarantee is
+   //     waived and the effects are unspecified.
+   //   - Is this function valid for this container?
+   //
+   // void clear() noexcept;
+   //   - erases all elements from the container
+   //   - size is 0, capacity is unchanged
+   //   - Is this function valid for this container?
+   //
+   // iterator insert() - Are these functions valid for this container?
+   //   - Causes reallocation if the new size() is greater than the old capacity().
+   //   - Yes, required for a sequence container
+   //
+   // template< class... Args> iterator emplace( const_iterator pos, Args&&... args );
+   //   - Inserts a new element into the container directly before pos.
+   //   - Is this function valid for this container?
+   //
+   // iterator erase( const_iterator pos );
+   //   - Is this function valid for this container?
+   //
+   // push_back(), emplace_back(), pop_back()
+   //   - Are these functions valid for this container?
+   //
+   // void resize( size_type count );
+   // void resize( size_type count, const value_type& value );
+   //   - Resizes the container to contain count elements
+   //   - If current size is > count, the container is reduced to its first count elements.
+   //   - If the current size is less than count, it grows, and additional copies
+   //     are inserted.
+   //   - Strong exception guarantee
+   //   - If value-initialization is undesirable, it can be avoided by providing a
+   //     cusom Allocator::construct;
+   //
+   // void swap( vector& other ) noexcept(*);
+   //   - If std::allocator_traits<allocator_type>::propagate_on_container_swap::value 
+   //     is true, then the allocators are exchanged using an unqualified call to 
+   //     non-member swap. Otherwise, they are not swapped 
+   //     (and if get_allocator() != other.get_allocator(), the behavior is undefined). 
+   //   - Exceptions: noexcept(std::allocator_traits<Allocator>::propagate_on_container_swap::value || std::allocator_traits<Allocator>::is_always_equal::value)
+   //
+   // std::swap(std::vector<T,A>) specialization
+   //
 
-   explicit dynamic_array(size_type N, T val = T()) 
+   // std::array
+   //
+   // implicit constructor:
+   //  - initializes the array following the rules of "aggregate initialization",
+   //    which may result in indeterminate values for non-class T.
+   //
+   // implicit destructor
+   //  - destroys every element of the array
+   //
+   // implicit operator =
+   //  - overwrites every element of the array with the corresponding 
+   //    element of another array
+   //
+   // at()
+   // operator[]
+   // front()
+   // back()
+   // data()
+   // begin()
+   // cbegin()
+   // end()
+   // cend()
+   // rbegin()
+   // crbegin()
+   // rend()
+   // crend()
+   // empty()
+   // size()
+   // max_size()
+   // fill()
+   // swap()
+   //
+   // operator ==
+   // operator !=
+   // operator <
+   // operator <=
+   // operator >
+   // operator >=
+
+   dynamic_array() noexcept(noexcept(Allocator())) : Allocator(), _elems{nullptr}, _N{0} {}
+
+   explicit dynamic_array( const Allocator& alloc ) noexcept : Allocator(alloc), _elems{nullptr}, _N{0} {}
+
+   explicit dynamic_array( size_type count, const T& value, const Allocator& alloc = Allocator()) : Allocator(alloc)
    {
-      _elems = new T[N](val);
-      _N = N;
+      _elems = new T[count](value);
+      _N = count;
+   }
+
+   explicit dynamic_array( size_type count, const Allocator& alloc = Allocator()) : Allocator(alloc)
+   {
+      _elems = new T[count];
+      _N = count;
    }
 
    dynamic_array(const dynamic_array& other)
@@ -86,12 +259,12 @@ class dynamic_array
       std::swap(this->_elems, other._elems);
    }
 
-   void resize(size_type N, T val = T())
+   void resize(size_type N)
    {
       if (N != this->_N)
       {
          this->~dynamic_array();
-         this->_elems = new T[N](val);
+         this->_elems = new T[N];
          this->_N = N;
       }
    }
