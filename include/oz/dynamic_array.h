@@ -14,6 +14,7 @@ template<typename T, typename Allocator = std::allocator<T>>
 class dynamic_array : protected Allocator
 {
    using value_type = T;
+   using allocator_type = Allocator;
    using reference = T&;
    using const_reference = const T&;
    using iterator = T*;
@@ -194,120 +195,136 @@ class dynamic_array : protected Allocator
 
    explicit dynamic_array( const Allocator& alloc ) noexcept : Allocator(alloc), _elems{nullptr}, _N{0} {}
 
-   explicit dynamic_array( size_type count, const T& value, const Allocator& alloc = Allocator()) : Allocator(alloc)
-   {
-      _elems = new T[count](value);
-      _N = count;
-   }
-
    explicit dynamic_array( size_type count, const Allocator& alloc = Allocator()) : Allocator(alloc)
    {
-      _elems = new T[count];
-      _N = count;
-   }
-
-   dynamic_array(const dynamic_array& other)
-   {
-      T * tmp = new T[other.N];
-      for (size_type i=0; i < other._N; i++) {
-         tmp[i] = other._elems[i];
-      }
-      this->_elems = tmp;
-      this->_N = other._N;
-   }
-
-   dynamic_array(dynamic_array&& other) noexcept
-   {
-      this->_elems = other._elems;
-      this->_N = other._N;
-      other._elems = nullptr;
-      other._N = 0;
-   }
-
-   dynamic_array& operator = (const dynamic_array& other)
-   {
-      if ( this != &other ) {
-         T * tmp = new T[other._N];
-         for (size_type i=0; i < other._N; i++) {
-            tmp[i] = other._elems[i];
+      size_type idx = 0;
+      try {
+         _elems = std::allocator_traits<Allocator>::allocate(get_allocator(), count);
+         for(; idx < count; idx++) {
+            std::allocator_traits<Allocator>::construct(get_allocator(), &_elems[idx]);
          }
-         this->~dynamic_array();
-         this->_elems = tmp;
-         this->_N = other._N;
+         _N = count;
       }
-      return *this;
-   }
+      catch (...) {
+         for(; idx > 0; idx--) {
+            std::allocator_traits<Allocator>::destroy(get_allocator(), &_elems[idx]);
+         }
 
-   dynamic_array& operator = (dynamic_array&& other) noexcept
-   {
-      std::swap(this->_elems, other._elems);
-      std::swap(this->_N, other._N);
-   }
-
-   ~dynamic_array() noexcept
-   {
-      if ( this->_elems ) {
-         delete [] this->_elems;
-         this->_elems = nullptr;
-         this->_N = 0;
+         std::allocator_traits<Allocator>::deallocate(get_allocator(), _elems, _N);
+         _N = 0;
+         throw;
       }
    }
 
-   void swap(dynamic_array& other)
-   {
-      std::swap(this->_N, other._N);
-      std::swap(this->_elems, other._elems);
-   }
+   // explicit dynamic_array( size_type count, const T& value, const Allocator& alloc = Allocator()) : Allocator(alloc)
+   // {
+   //    _elems = new T[count](value);
+   //    _N = count;
+   // }
 
-   void resize(size_type N)
-   {
-      if (N != this->_N)
-      {
-         this->~dynamic_array();
-         this->_elems = new T[N];
-         this->_N = N;
-      }
-   }
 
-   reference operator [] (size_type idx) noexcept
-   {
-      return this->_elems[idx];
-   }
-
-   const_reference operator [] (size_type idx) const noexcept
-   {
-      return this->_elems[idx];
-   }
-
+   // dynamic_array(const dynamic_array& other)
+   // {
+   //    T * tmp = new T[other.N];
+   //    for (size_type i=0; i < other._N; i++) {
+   //       tmp[i] = other._elems[i];
+   //    }
+   //    this->_elems = tmp;
+   //    this->_N = other._N;
+   // }
+   //
+   // dynamic_array(dynamic_array&& other) noexcept
+   // {
+   //    this->_elems = other._elems;
+   //    this->_N = other._N;
+   //    other._elems = nullptr;
+   //    other._N = 0;
+   // }
+   //
+   // dynamic_array& operator = (const dynamic_array& other)
+   // {
+   //    if ( this != &other ) {
+   //       T * tmp = new T[other._N];
+   //       for (size_type i=0; i < other._N; i++) {
+   //          tmp[i] = other._elems[i];
+   //       }
+   //       this->~dynamic_array();
+   //       this->_elems = tmp;
+   //       this->_N = other._N;
+   //    }
+   //    return *this;
+   // }
+   //
+   // dynamic_array& operator = (dynamic_array&& other) noexcept
+   // {
+   //    std::swap(this->_elems, other._elems);
+   //    std::swap(this->_N, other._N);
+   // }
+   //
+   // ~dynamic_array() noexcept
+   // {
+   //    if ( this->_elems ) {
+   //       delete [] this->_elems;
+   //       this->_elems = nullptr;
+   //       this->_N = 0;
+   //    }
+   // }
+   //
+   // void swap(dynamic_array& other)
+   // {
+   //    std::swap(this->_N, other._N);
+   //    std::swap(this->_elems, other._elems);
+   // }
+   //
+   // void resize(size_type N)
+   // {
+   //    if (N != this->_N)
+   //    {
+   //       this->~dynamic_array();
+   //       this->_elems = new T[N];
+   //       this->_N = N;
+   //    }
+   // }
+   //
+   // reference operator [] (size_type idx) noexcept
+   // {
+   //    return this->_elems[idx];
+   // }
+   //
+   // const_reference operator [] (size_type idx) const noexcept
+   // {
+   //    return this->_elems[idx];
+   // }
+   //
    T * data() noexcept
    {
       return this->_elems;
    }
-
-   const T * data() const noexcept
-   {
-      return this->_elems;
-   }
-
-   iterator begin() noexcept
-   {
-      return this->_elems;
-   }
-
-   iterator end() noexcept
-   {
-      return this->_elems + this->_N;
-   }
-
-   const iterator cbegin() const noexcept
-   {
-      return this->_elems;
-   }
-
-   const iterator cend() const noexcept
-   {
-      return this->_elems + this->_N;
-   }
+   //
+   // const T * data() const noexcept
+   // {
+   //    return this->_elems;
+   // }
+   //
+   // iterator begin() noexcept
+   // {
+   //    return this->_elems;
+   // }
+   //
+   // iterator end() noexcept
+   // {
+   //    return this->_elems + this->_N;
+   // }
+   //
+   // const iterator cbegin() const noexcept
+   // {
+   //    return this->_elems;
+   // }
+   //
+   // const iterator cend() const noexcept
+   // {
+   //    return this->_elems + this->_N;
+   // }
 
    size_type size() const noexcept
    {
@@ -324,25 +341,30 @@ class dynamic_array : protected Allocator
       return this->_elems == nullptr;
    }
 
-   bool operator == (const dynamic_array& other)
+   allocator_type& get_allocator() noexcept
    {
-      if ( this->_N == other._N ) {
-         for(size_type i=0; i < this->_N; i++) {
-            if ( this->_elems[i] != other._elems[i] ) {
-               return false;
-            }
-         }
-         return true;
-      }
-      else {
-         return false;
-      }
+      return *this;
    }
 
-   bool operator != (const dynamic_array& other)
-   {
-      return !(this->operator == (other));
-   }
+   // bool operator == (const dynamic_array& other)
+   // {
+   //    if ( this->_N == other._N ) {
+   //       for(size_type i=0; i < this->_N; i++) {
+   //          if ( this->_elems[i] != other._elems[i] ) {
+   //             return false;
+   //          }
+   //       }
+   //       return true;
+   //    }
+   //    else {
+   //       return false;
+   //    }
+   // }
+   //
+   // bool operator != (const dynamic_array& other)
+   // {
+   //    return !(this->operator == (other));
+   // }
 
 
 
